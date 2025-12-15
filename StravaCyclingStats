@@ -2,11 +2,9 @@ import pandas as pd
 import sys
 import pathlib as pl
 import tkinter as tk
-import matplotlib as mpl
 from tkinter import filedialog
 from tkinter.ttk import Treeview
 from tkinter import ttk
-from tkinter import messagebox as mbox
 
 background_color_main='#262624'
 text_color="#E9E9E9"
@@ -42,7 +40,6 @@ class CycloMeter():
         
         self.sort_column=column
         self.data = self.data.sort_values(by=column, ascending=self.sort_ascending)
-        
     
     def setCondition(self, condition):
         if condition is None:
@@ -61,13 +58,15 @@ class CycloMeter():
             condition=self.data[column]>value
             self.setCondition(condition)
             print('Filterization is complete!')
+            return True
         elif operator == "<":
             value=int(value)
             condition=self.data[column]<value
             self.setCondition(condition)
             print('Filterization is complete!')
+            return True
         else:
-            print('Invalid operator. (< or >)')
+            print('Invalid operation.')
             return False
     
     def extractColumn(self, column:str):
@@ -99,6 +98,7 @@ class CycloMeter():
             self.data[f"{column}/h"]=meter
 
 class TextRedirector():
+    '''displays cmd line on GUI'''
     def __init__(self, text_widget:tk.Text, delay=50):
         self.text_widget = text_widget
         self.delay = delay
@@ -129,11 +129,22 @@ class TextRedirector():
     def flush(self):
         pass
 
+class EntryField():
+    def __init__(self, parent:tk.Tk, text:str):
+        self.frame=tk.Frame(parent)
+        self.entry=tk.Entry(self.frame)
+        self.text=text
+        self.label=tk.Label(self.frame, text=self.text)
+    
+    def packButtonHelper(self):
+        self.entry.pack(side=tk.RIGHT)
+        self.label.pack(side=tk.LEFT)
+        self.frame.pack(side="top")
+
 def loadFile():
-    
     items=['activity id', 'activity date', 'moving time/h', 'distance', 'max heart rate', 'average heart rate', 'average speed kmh', 'max speed kmh', 'average watts', 'calories'] 
-    
     path=filedialog.askopenfilename()
+
     if path:
         cyclingObj=CycloMeter(path)
         cyclingObj.data=cyclingObj.data[items]
@@ -141,6 +152,10 @@ def loadFile():
     else:
         pass
     return cyclingObj
+
+def packItems(item):
+    #NEEDS UPDATE
+    return item.pack()
 
 def displayData(cyclingObj:CycloMeter):
     
@@ -152,22 +167,20 @@ def displayData(cyclingObj:CycloMeter):
 
 def updateStatusBar(status_bar:tk.Text):
     sys.stdout=TextRedirector(status_bar)
-    
 
 def treeview_init(tree_view:Treeview, display_data, pandasRows, cyclingObj:CycloMeter):
     '''Adjust, insert and clear treeview'''
+
     for t in tree_view.get_children(): tree_view.delete(t)
+
+    #A bit complex but briefly, when clicked calls on sortedValues then 
+    # insertTable again, sortedValues directly mutates the self.data then 
+    # insertedtable just normally calls on that object with mutated data etc
     for i in list(display_data.columns): 
-        
-        #A bit complex but briefly, when clicked calls on sortedValues then 
-        # insertTable again, sortedValues directly mutates the self.data then 
-        # insertedtable just normally calls on that object with mutated data etc
         tree_view.heading(i, text=i, command=lambda col=i: (cyclingObj.sortValues(col), insertTable(tree_view, cyclingObj))) 
-        
         tree_view.column(i, width=180) #column sorting
     
     for index, value in pandasRows: #Iterating through pandasRows
-        print(value, index)
         raw_values=value.values #Series obj (bool T/F) to raw values
         tree_view.insert('','end',values=raw_values.tolist()) #''(start) to end insertion of columns not records
     print(f"Table insertion is complete!") #debugging needs removed on scaffolding
@@ -186,59 +199,35 @@ def retrieveEntry(colmn,op,setVal, cyclingObj:CycloMeter):
     operator=op.get()
     val=setVal.get()
     cyclingObj.filterResults(colmn,operator,val)
-
-def initButtons(window):
-    for i in range(4):
-        if i==0:
-            frame_1=tk.Frame(window)
-            colmn=tk.Entry(frame_1)
-            
-        elif i==1:
-            frame_2=tk.Frame(window)
-            op=tk.Entry(frame_2)
-            
-        elif i==2:
-            frame_3=tk.Frame(window)
-            setVal=tk.Entry(frame_3)
-        elif i==3:
-            frame_4=tk.Frame(window)
-            
-    return colmn,op,setVal,frame_1,frame_2,frame_3, frame_4
-
-def packButtons(colmn,op,setVal,frame_1,frame_2,frame_3, frame_4):
     
-    
-    for index, value in enumerate(["Column:", "Operation:", "Set Value:"]):
-        
-        if index==0:
-            colmLabel=tk.Label(frame_1, text='column:')
-            frame_1.pack(side='top')
-            colmn.pack(side=tk.RIGHT)
-            colmLabel.pack(side=tk.LEFT)
-            
-        elif index==1:
-            operatorLabel=tk.Label(frame_2, text='operator:')
-            frame_2.pack(side='top')
-            op.pack(side=tk.RIGHT)
-            operatorLabel.pack(side=tk.LEFT)
-            
-        elif index==2:
-            valueLabel=tk.Label(frame_3, text='value:')
-            frame_3.pack(side='top')
-            setVal.pack(side=tk.RIGHT)
-            valueLabel.pack(side=tk.LEFT)
+def packTextButtonHelper(window):
+    status_bar_frame=tk.Frame(window)
+    status_bar=tk.Text(status_bar_frame, state='disabled', height=1, width=40)
+    return status_bar, status_bar_frame
 
-    status_bar=tk.Text(frame_4, state='disabled')
-    frame_4.pack(side='right', fill="x")
-    status_bar.pack(fill="x") 
-    updateStatusBar(status_bar) 
+def initButtons(window, count, label_names:list):
+    '''count: number of fields expected
+       label_names: list with strings that matches lenght of count'''
+    if count == len(label_names):
+        items=[]
+        for j in label_names:
+            entry_field=EntryField(window,j)
+            items.append(entry_field)
+        return items
+    else:
+        raise ValueError('Count is less or more than labels')
 
-def applyStyle(window:tk.Tk, style:ttk.Style):
+def initStatusBar(window):
+    status_bar_tuple=packTextButtonHelper(window)
+    updateStatusBar(status_bar_tuple[0])
+    return status_bar_tuple
+
+def applyStyle(window:tk.Tk):
+    style=ttk.Style(master=window)
     window.option_add('*Text.font', ('Segoe UI', 12))
     style.theme_use('clam')
-    
+
     layers=['*Button', '*Text', '*Label', '*Entry']
-    
     for i in layers: 
             window.option_add(f'{i}.foreground', text_color)
             window.option_add(f'{i}.background', button_backg_color)
@@ -289,21 +278,21 @@ def programInitialize():
     window=tk.Tk(className="cycloMeter")
     window.configure(background=background_color_main)
     window.geometry('1200x800')
-    style=ttk.Style(master=window)
-    applyStyle(window,style)
+    applyStyle(window)
 
     tree_view=Treeview(window, height=26)
     buttonLoadFile=tk.Button(window, text='Load CSV File', command=loadFile)
     
     buttonInsertTable=tk.Button(window, text="Insert Table", command=lambda: insertTable(tree_view, module_level['obj']))
-    colmn, op, setVal, frame_1, frame_2, frame_3, frame_4=initButtons(window)
-
-    buttonFilter=tk.Button(window, text='Filter', command=lambda:retrieveEntry(colmn,op,setVal, module_level['obj'])) #text box
-    
+    boxes=initButtons(window,3,["column:","operator:","value:"])
+    column_field, operator_field, value_field=boxes
+    status_bar, status_bar_frame=initStatusBar(window)
+    buttonFilter=tk.Button(window, text='Filter', command=lambda:retrieveEntry(column_field.entry,operator_field.entry,value_field.entry, module_level['obj'])) #text box
     
     for i in [tree_view,buttonLoadFile,buttonFilter,buttonInsertTable]: i.pack()
-    packButtons(colmn,op,setVal,frame_1,frame_2,frame_3, frame_4)
-    
+    for i in boxes:i.packButtonHelper()
+    for i in status_bar_frame,status_bar: i.pack()
+
     window.mainloop()
 
 if __name__ == "__main__":
@@ -314,13 +303,10 @@ if __name__ == "__main__":
         Loading columns, data works
         Filtering works
         Interface is a bit better
-        .exe file is ready
-
-    
+        
     TODO:
-        Imperative programming needs removal or improvement.
-        Global variables left and right, try to remove and implement better iFace
-        When clicked on column, sort it by highest.
-        Filterization is single dimensional, increase it for multiple columns and filterizations
-    
+        -Do .exe
+        -Filterization is single dimensional, increase it for multiple columns and filterizations
+        -Expand filterization errors
+
     """
