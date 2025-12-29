@@ -446,19 +446,3 @@ def programInitialize():
 
 if __name__ == "__main__":
     programInitialize()
-    
-    '''TODO:
-        -Sorting and filtering is currently incompatible with indexes.
-            self.condition maps to self.data, such as 2nd index is true,
-            however, when the self.data is sorted and consequently flipped,
-            self.condition still maps to older indexes meanwhile self.data is flipped.
-        -Do .exe
-        -Filterization is single dimensional, increase it for multiple columns and filterizations
-        -Expand filterization errors
-        
-    TBD:
-        Add bar icon:
-    
-        -Add icon to file.
-
-    '''
