@@ -180,12 +180,22 @@ def loadFile(cyclingObj):
 
 def calculateSummableColumns(display_data:pd.DataFrame):
     '''Take dataframe to assign columns to be assigned as summary at the end of the treeview object.'''
-    select=['distance', 'calories']
+    select=['distance', 'calories', 'average watts']
     sum_dictionary={}
     columns=display_data.columns
     dt_columns=display_data.select_dtypes('number').columns
     for i in [column for column in dt_columns if column in select]: #Iterate over 
-        raw_value=display_data[i].sum(skipna=True)
+        if i == 'average watts':
+            available_watts=display_data[display_data[i].notna()]
+            precise_watts=(available_watts[i] * available_watts['moving time/h'] / 1000).sum()
+            approx_rides=display_data[display_data[i].isna()]
+            approx_watts=(140 * approx_rides['moving time/h'] / 1000).sum()
+            kwh=precise_watts+approx_watts
+            raw_value=f"{round(kwh ,3)} kWh"
+        elif i == 'calories':
+            raw_value=f"{display_data[i].sum(skipna=True)} Kcal"
+        elif i == 'distance':
+            raw_value=f"{display_data[i].sum(skipna=True)} KMs"
         sum_dictionary[i]=raw_value
     for j in columns:
         if j not in sum_dictionary and j == 'activity id':
